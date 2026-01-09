@@ -30,6 +30,7 @@ tiles = []
 spawn_points = []
 death_tiles = []
 power_ups = []
+end_level = []
 
 dirt = pygame.image.load("images/64x64_dirt.png").convert_alpha()
 dirt = pygame.transform.scale(dirt, (TILE_SIZE, TILE_SIZE))
@@ -39,6 +40,9 @@ magma = pygame.transform.scale(magma, (TILE_SIZE, TILE_SIZE))
 
 health_powerup = pygame.image.load("images/health_powerup.png")
 health_powerup = pygame.transform.scale(health_powerup, (24,24))
+
+end_tile_img = pygame.image.load("images/end_tile.png")
+end_tile_img = pygame.transform.scale(end_tile_img, (TILE_SIZE, TILE_SIZE))
 
 player = Player(0,0,50,120, spawn_points)
 camera = Camera(screen_width, screen_height, TILE_SIZE)
@@ -74,8 +78,11 @@ def load_level(path, tile_size):
                 center_x = rect.x + tile_size // 2
                 center_y = rect.y + tile_size // 2
                 power_ups.append(pygame.Rect(center_x - 12, center_y - 12, 24, 24))
+            
+            if tile == 5:
+                end_level.append(rect)
     
-    return tiles, death_tiles, spawn_points, tilemap
+    return tiles, death_tiles, spawn_points, tilemap, end_level
 
 def draw_start_screen(screen):
     overlay = pygame.Surface(screen.get_size())
@@ -99,6 +106,20 @@ def draw_game_over(screen):
     restart = small_font.render("Press R To Restart", True, (255,255,255))
     restart_rect = restart.get_rect(center=(screen.get_width()//2, screen.get_height()//2 + 40))
     screen.blit(restart, restart_rect)
+
+def level_end(screen):
+    overlay = pygame.Surface(screen.get_size())
+    overlay.set_alpha(200)
+    overlay.fill((50,50,50))
+    screen.blit(overlay, (0,0))
+
+    level_completed = font.render("LEVEL COMPLETED", True, (0,0,0))
+    rect = level_completed.get_rect(center=(screen.get_width()//2, screen.get_height()//2 - 40))
+    screen.blit(level_completed, rect)
+
+    sub = small_font.render("Press Enter To Continue", True, (0,0,0))
+    rect = sub.get_rect(center=(screen.get_width()//2, screen.get_height()//2))
+    screen.blit(sub, rect)
 
 def draw_map_select(screen, selected_index):
     screen.fill((30,30,30))
@@ -140,14 +161,12 @@ def draw_minimap(screen, tilemap, player, scale_x, scale_y):
     pygame.draw.rect(minimap_surface, (255,255,255), minimap_surface.get_rect(), 2)
     screen.blit(minimap_surface, (MINIMAP_X, MINIMAP_Y))
 
-tiles, death_tiles, spawn_points, tilemap = load_level("maps/map1.json", TILE_SIZE)
-
 player.respawn()
 
 death_flash_alpha = 0
 
 running = True
-
+level_finished = False
 while running:
     key = pygame.key.get_pressed()
 
@@ -183,11 +202,11 @@ while running:
                 death_tiles.clear()
                 spawn_points.clear()
 
-                tiles, death_tiles, spawn_points, tilemap = load_level(MAPS[current_map_index], TILE_SIZE)
+                tiles, death_tiles, spawn_points, tilemap, end_level = load_level(MAPS[current_map_index], TILE_SIZE)
                 player.respawn()
                 game_state = "playing"
     
-    screen.fill(WHITE)
+    screen.fill((125,50,0))
 
     if game_state == "start":
         draw_start_screen(screen)
@@ -197,6 +216,12 @@ while running:
     
     if game_state == "map_select":
         draw_map_select(screen, current_map_index)
+        clock.tick(60)
+        pygame.display.flip()
+        continue
+
+    if game_state == "level_complete":
+        level_end(screen)
         clock.tick(60)
         pygame.display.flip()
         continue
@@ -222,6 +247,9 @@ while running:
             player.gain_life()
             player.start_green_flash()
             power_ups.remove(p)
+     
+    for tile in end_level:
+        screen.blit(end_tile_img, (tile.x - camera.offset_x, tile.y - camera.offset_y))
 
     if player.rect.top > len(tilemap) * TILE_SIZE:
         death_flash_alpha = 180
@@ -250,6 +278,12 @@ while running:
         scale_y = MINIMAP_HEIGHT / map_height
 
         draw_minimap(screen, tilemap, player, scale_x, scale_y)
+
+        for end in end_level:
+            if player.rect.colliderect(end):
+                death_flash_alpha = 180
+                game_state = "level_complete"
+                break
 
     if game_state == "game_over":
         draw_game_over(screen)

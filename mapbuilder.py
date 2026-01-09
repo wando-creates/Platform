@@ -19,6 +19,7 @@ dirt = pygame.image.load("images/64x64_dirt.png")
 magma = pygame.image.load("images/64x64_magma.png")
 spawn = pygame.image.load("images/spawn_block.png")
 health_powerup = pygame.image.load("images/health_powerup.png")
+end_tile = pygame.image.load("images/end_tile.png")
 
 font = pygame.font.SysFont(None, 32)
 
@@ -69,6 +70,8 @@ def draw_grid():
                 screen.blit(spawn, rect)
             elif tilemap[row][col] == 4:
                 screen.blit(health_powerup, rect)
+            elif tilemap[row][col] == 5:
+                screen.blit(end_tile, rect)
             else:
                 colour = WHITE
 
@@ -151,6 +154,8 @@ while running:
                 paint_value = 3
             if event.key == pygame.K_u:
                 paint_value = 4
+            if event.key == pygame.K_y:
+                paint_value = 5
             
             if event.key == pygame.K_1:
                 current_map_name = "map1"
