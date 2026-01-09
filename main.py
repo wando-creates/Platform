@@ -31,6 +31,7 @@ spawn_points = []
 death_tiles = []
 power_ups = []
 end_level = []
+coins = []
 
 dirt = pygame.image.load("images/64x64_dirt.png").convert_alpha()
 dirt = pygame.transform.scale(dirt, (TILE_SIZE, TILE_SIZE))
@@ -41,6 +42,9 @@ magma = pygame.transform.scale(magma, (TILE_SIZE, TILE_SIZE))
 health_powerup = pygame.image.load("images/health_powerup.png")
 health_powerup = pygame.transform.scale(health_powerup, (24,24))
 
+coin_img = pygame.image.load("images/coin.png")
+coin_img = pygame.transform.scale(coin_img, (24,24))
+
 end_tile_img = pygame.image.load("images/end_tile.png")
 end_tile_img = pygame.transform.scale(end_tile_img, (TILE_SIZE, TILE_SIZE))
 
@@ -50,9 +54,12 @@ camera = Camera(screen_width, screen_height, TILE_SIZE)
 MAPS = ["maps/map1.json",
         "maps/map2.json",
         "maps/map3.json",
+        "maps/map4.json",
+        "maps/map5.json"
 ]
 
 current_map_index = 0 
+coin_count = 0
 
 game_state = "start"
 
@@ -77,11 +84,16 @@ def load_level(path, tile_size):
             if tile == 4:
                 center_x = rect.x + tile_size // 2
                 center_y = rect.y + tile_size // 2
-                power_ups.append(pygame.Rect(center_x - 12, center_y - 12, 24, 24))
+                power_ups.append(pygame.Rect(center_x - 12, center_y - 12, 48,48))
             
             if tile == 5:
                 end_level.append(rect)
-    
+            
+            if tile == 6:
+                center_x = rect.x + tile_size // 2
+                center_y = rect.y + tile_size // 2
+                coins.append(pygame.Rect(center_x - 12, center_y - 12, 24, 24))
+            
     return tiles, death_tiles, spawn_points, tilemap, end_level
 
 def draw_start_screen(screen):
@@ -167,6 +179,7 @@ death_flash_alpha = 0
 
 running = True
 level_finished = False
+
 while running:
     key = pygame.key.get_pressed()
 
@@ -201,12 +214,13 @@ while running:
                 tiles.clear()
                 death_tiles.clear()
                 spawn_points.clear()
+                coins.clear()
 
                 tiles, death_tiles, spawn_points, tilemap, end_level = load_level(MAPS[current_map_index], TILE_SIZE)
                 player.respawn()
                 game_state = "playing"
     
-    screen.fill((125,50,0))
+    screen.fill((180,180,180))
 
     if game_state == "start":
         draw_start_screen(screen)
@@ -250,6 +264,14 @@ while running:
      
     for tile in end_level:
         screen.blit(end_tile_img, (tile.x - camera.offset_x, tile.y - camera.offset_y))
+    
+    for c in coins:
+        screen.blit(coin_img, (c.x - camera.offset_x, c.y - camera.offset_y))
+    
+    for c in coins[:]:
+        if player.rect.colliderect(c):
+            coin_count += 1
+            coins.remove(c)
 
     if player.rect.top > len(tilemap) * TILE_SIZE:
         death_flash_alpha = 180
@@ -278,6 +300,9 @@ while running:
         scale_y = MINIMAP_HEIGHT / map_height
 
         draw_minimap(screen, tilemap, player, scale_x, scale_y)
+
+        coin_text = small_font.render(f"Coins: {coin_count}", True, (255,215, 0))
+        screen.blit(coin_text, (20, 60))
 
         for end in end_level:
             if player.rect.colliderect(end):

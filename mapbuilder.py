@@ -20,7 +20,26 @@ magma = pygame.image.load("images/64x64_magma.png")
 spawn = pygame.image.load("images/spawn_block.png")
 health_powerup = pygame.image.load("images/health_powerup.png")
 end_tile = pygame.image.load("images/end_tile.png")
+coin_img = pygame.image.load("images/coin.png")
 
+TILE_NAMES =  {
+    0: "Empty",
+    1: "Dirt",
+    2: "Magma",
+    3: "Spawn",
+    4: "Health",
+    5: "End",
+    6: "Coin"
+}
+
+Tile_IMAGES = {
+    1: dirt,
+    2: magma,
+    3: spawn,
+    4: health_powerup,
+    5: end_tile,
+    6: coin_img
+}
 font = pygame.font.SysFont(None, 32)
 
 camera_x = 0
@@ -72,6 +91,8 @@ def draw_grid():
                 screen.blit(health_powerup, rect)
             elif tilemap[row][col] == 5:
                 screen.blit(end_tile, rect)
+            elif tilemap[row][col] == 6:
+                screen.blit(coin_img, rect)
             else:
                 colour = WHITE
 
@@ -120,6 +141,16 @@ def draw_status_text():
     
     screen.blit(map_surf, (10,10))
     screen.blit(status_surf, (10,45))
+
+    tile_name = TILE_NAMES.get(paint_value, "Unknown")
+    tile_text = font.render(f"Selected: {tile_name}", True, (255,255,255))
+
+    screen.blit(tile_text, (10,85))
+
+    tile_img = Tile_IMAGES.get(paint_value)
+    if tile_img:
+        screen.blit(tile_img, (10,120))
+
 running = True
 
 while running:
@@ -146,16 +177,18 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False
-            if event.key == pygame.K_i:
+            if event.key == pygame.K_p:
                 paint_value = 1
             if event.key == pygame.K_o:
                 paint_value = 2
-            if event.key == pygame.K_p:
+            if event.key == pygame.K_i:
                 paint_value = 3
             if event.key == pygame.K_u:
                 paint_value = 4
             if event.key == pygame.K_y:
                 paint_value = 5
+            if event.key == pygame.K_t:
+                paint_value = 6
             
             if event.key == pygame.K_1:
                 current_map_name = "map1"
@@ -163,6 +196,10 @@ while running:
                 current_map_name = "map2"
             if event.key == pygame.K_3:
                 current_map_name = "map3"
+            if event.key == pygame.K_4:
+                current_map_name = "map4"
+            if event.key == pygame.K_5:
+                current_map_name = "map5"
             
             if event.key == pygame.K_F5:
                 save_map()
