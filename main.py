@@ -36,6 +36,7 @@ end_level = []
 coins = []
 coin_popups = []
 lava_particles = []
+end_particles = []
 
 dirt = pygame.image.load("images/64x64_dirt.png").convert_alpha()
 dirt = pygame.transform.scale(dirt, (TILE_SIZE, TILE_SIZE))
@@ -276,8 +277,28 @@ while running:
                 "life": random.randint(20,40),
                 "size": random.randint(5,12)
             })
-            
+
         screen.blit(magma, (tile.x - camera.offset_x, tile.y - camera.offset_y))
+
+    for tile in end_level:
+        screen.blit(end_tile_img, (tile.x - camera.offset_x, tile.y - camera.offset_y))
+        if random.random() < 0.04:
+            angle = random.uniform(0,2 * math.pi)
+            speed = random.uniform(1,3)
+
+            end_particles.append({
+                "x": tile.centerx,
+                "y": tile.centery,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed,
+                "life": random.randint(20,40),
+                "size": random.randint(12,15)
+            })
+
+        if coin_count < total_coins:
+            locked = end_tile_img.copy()
+            locked.set_alpha(100)
+            screen.blit(locked, (tile.x - camera.offset_x, tile.y -camera.offset_y))
 
     for dt in death_tiles:
         if player.rect.colliderect(dt):
@@ -302,21 +323,7 @@ while running:
             player.gain_life()
             player.start_green_flash()
             power_ups.remove(p)
-     
-    for tile in end_level:
-        pulse = int(8 * abs(math.sin(exit_pulse * 0.05)))
-        rect = pygame.Rect(tile.x - camera.offset_x - pulse//2, tile.y - camera.offset_y - pulse // 2,
-                           TILE_SIZE + pulse, TILE_SIZE + pulse)
-        if coin_count < total_coins:
-            locked = end_tile_img.copy()
-            locked.set_alpha(100)
-            screen.blit(locked, (tile.x - camera.offset_x, tile.y -camera.offset_y))
-        else:
-            glow = pygame.Surface(rect.size, pygame.SRCALPHA)
-            glow.fill((255,255,0,80))
-            screen.blit(glow, rect.topleft)
-            screen.blit(end_tile_img, rect.topleft) 
-
+    
     for c in coins:
         float_offset = math.sin(coin_timer + c.x * 0.01 + c.y * 0.01) * 5
         screen.blit(coin_img, (c.x - camera.offset_x, c.y - camera.offset_y + float_offset))
@@ -331,7 +338,7 @@ while running:
         p["x"] += p["vx"]
         p["y"] += p["vy"]
         p["vy"] += 0.05
-        p["life"] -= 1
+        p["life"] -= 0.5
 
         alpha = max(0, int(255 * (p["life"] / 40)))
         colour = (255, random.randint(80,120), 0)
@@ -343,6 +350,21 @@ while running:
 
         if p["life"] <= 0:
             lava_particles.remove(p)
+
+    for p in end_particles[:]:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["life"] -= 1
+
+        alpha = max(0, int(255 * (p["life"] / 40)))
+        colour = (random.randint(20,70), 180, 0)
+
+        surf = pygame.Surface((p["size"]*2, p["size"]*2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (*colour, alpha), (p["size"], p["size"]), p["size"])
+        screen.blit(surf, (p["x"] - camera.offset_x, p["y"] - camera.offset_y))
+
+        if p["life"] <= 0:
+            end_particles.remove(p)
 
     if player.rect.top > len(tilemap) * TILE_SIZE:
         if player.rect.top > len(tilemap) * TILE_SIZE or player.rect.colliderect(dt):
