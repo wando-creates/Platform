@@ -9,11 +9,13 @@ screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
 pygame.display.set_caption("Map builder")
 
 current_map_name = "map1"
+tilemap = []
 
 ROWS = 20
 COLS = 50
 
 TILE_SIZE = 64
+RESET_RECT = pygame.Rect(1720,20,160,50)
 
 dirt = pygame.image.load("images/64x64_dirt.png")
 magma = pygame.image.load("images/64x64_magma.png")
@@ -62,8 +64,6 @@ is_saved = True
 
 paint_value = 1
 current_paint_value = paint_value
-
-tilemap = [[0 for _ in range(COLS)] for _ in range(ROWS)]
 
 def draw_grid():
     for row in range(ROWS):
@@ -127,6 +127,19 @@ def save_map():
     is_saved = True
     print(f"saved {filename}")
 
+def load_map():
+    global tilemap, is_saved
+    filename = f"maps/{current_map_name}.json"
+
+    try:
+        with open(filename, "r") as f:
+            tilemap = json.load(f)
+        is_saved = True
+
+    except FileNotFoundError:
+        tilemap = [[0 for _ in range(COLS)] for _ in range(ROWS)]
+        is_saved = False
+
 def clamp_camera():
     global camera_x, camera_y
     camera_x = max(0, min(camera_x, max_camera_x))
@@ -151,12 +164,20 @@ def draw_status_text():
     if tile_img:
         screen.blit(tile_img, (10,120))
 
+def reset_map():
+    global tilemap
+    tilemap = [[0 for _ in range(COLS)] for _ in range(ROWS)]
 running = True
+
+load_map()
+
 
 while running:
     screen.fill(BROWN)
-    draw_grid()
+
     draw_status_text()
+    draw_grid()
+    
     keys = pygame.key.get_pressed()
     current_paint_value = paint_value
     for event in pygame.event.get():
@@ -170,6 +191,10 @@ while running:
                 mouse_down = True
                 paint_value = 0
                 paint_tile(event.pos)
+            if event.button == 1:
+                if RESET_RECT.collidepoint(event.pos):
+                    reset_map()
+
         elif event.type == pygame.MOUSEBUTTONUP:
             if event.button in (1,3):
                 mouse_down = False
@@ -192,17 +217,27 @@ while running:
             
             if event.key == pygame.K_1:
                 current_map_name = "map1"
+                load_map()
             if event.key == pygame.K_2:
                 current_map_name = "map2"
+                load_map()
             if event.key == pygame.K_3:
                 current_map_name = "map3"
+                load_map()
             if event.key == pygame.K_4:
                 current_map_name = "map4"
+                load_map()
             if event.key == pygame.K_5:
                 current_map_name = "map5"
+                load_map()
             
             if event.key == pygame.K_F5:
                 save_map()
+
+            keys = pygame.key.get_pressed()
+            
+            if keys[pygame.K_LCTRL] and keys[pygame.K_r]:
+                reset_map()
 
     if keys[pygame.K_a]:
         camera_x -= SCROLL_SPEED
@@ -214,6 +249,13 @@ while running:
     if keys[pygame.K_s]:
         camera_y += SCROLL_SPEED
     
+    pygame.draw.rect(screen, (200,50,50), RESET_RECT, border_radius=5)
+    reset_text = font.render("RESET MAP", True, (255,255,255))
+    text_rect = reset_text.get_rect(center=RESET_RECT.center)
+    screen.blit(reset_text, text_rect)
+
+    if RESET_RECT.collidepoint(pygame.mouse.get_pos()):
+        pygame.draw.rect(screen, (230,80,80), RESET_RECT, border_radius=5)
     clamp_camera()
 
     if mouse_down:

@@ -1,5 +1,7 @@
 import pygame
 import json
+import math
+import random
 from settings import *
 from player import Player
 from camera import Camera
@@ -32,6 +34,7 @@ death_tiles = []
 power_ups = []
 end_level = []
 coins = []
+coin_popups = []
 
 dirt = pygame.image.load("images/64x64_dirt.png").convert_alpha()
 dirt = pygame.transform.scale(dirt, (TILE_SIZE, TILE_SIZE))
@@ -60,10 +63,20 @@ MAPS = ["maps/map1.json",
 
 current_map_index = 0 
 coin_count = 0
+total_coins = 0
+coin_timer = 0
 
+shake_duration = 0
+shake_magnitude = 5
+shake_offset_x = 0
+shake_offset_y = 0
+
+exit_pulse = 0
 game_state = "start"
 
 def load_level(path, tile_size):
+    global total_coins
+
     with open(path) as f:
         tilemap = json.load(f)
 
@@ -94,6 +107,7 @@ def load_level(path, tile_size):
                 center_y = rect.y + tile_size // 2
                 coins.append(pygame.Rect(center_x - 12, center_y - 12, 24, 24))
             
+    total_coins = len(coins)        
     return tiles, death_tiles, spawn_points, tilemap, end_level
 
 def draw_start_screen(screen):
@@ -182,7 +196,8 @@ level_finished = False
 
 while running:
     key = pygame.key.get_pressed()
-
+    exit_pulse += 1
+    coin_timer += 0.05
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -195,6 +210,11 @@ while running:
             if game_state == "game_over":
                 if event.key == pygame.K_r:
                     player.current_health = player.max_health
+                    if player.rect.top > len(tilemap) * TILE_SIZE or player.rect.colliderect(dt):
+                        death_flash_alpha = 180
+                        player.lose_life()
+                        player.respawn()
+                        shake_duration = 10
                     player.respawn()
                     game_state = "playing"
             if game_state == "start" and event.key == pygame.K_SPACE:
@@ -215,6 +235,8 @@ while running:
                 death_tiles.clear()
                 spawn_points.clear()
                 coins.clear()
+                coin_count = 0
+                total_coins = 0
 
                 tiles, death_tiles, spawn_points, tilemap, end_level = load_level(MAPS[current_map_index], TILE_SIZE)
                 player.respawn()
@@ -248,13 +270,21 @@ while running:
 
     for dt in death_tiles:
         if player.rect.colliderect(dt):
+            if player.rect.top > len(tilemap) * TILE_SIZE or player.rect.colliderect(dt):
+                death_flash_alpha = 180
+                player.lose_life()
+                player.respawn()
+                shake_duration = 10
+                break
+        if player.rect.top > len(tilemap) * TILE_SIZE:
             death_flash_alpha = 180
             player.lose_life()
             player.respawn()
-            break
+            shake_duration = 10
 
     for p in power_ups:
-        screen.blit(health_powerup, (p.x - camera.offset_x, p.y - camera.offset_y))
+        float_offset = math.sin(coin_timer + p.x * 0.01 + p.y * 0.01) * 5
+        screen.blit(health_powerup, (p.x - camera.offset_x, p.y - camera.offset_y + float_offset))
     
     for p in power_ups:
         if player.rect.colliderect(p):
@@ -263,19 +293,37 @@ while running:
             power_ups.remove(p)
      
     for tile in end_level:
-        screen.blit(end_tile_img, (tile.x - camera.offset_x, tile.y - camera.offset_y))
-    
+        pulse = int(8 * abs(math.sin(exit_pulse * 0.05)))
+        rect = pygame.Rect(tile.x - camera.offset_x - pulse//2, tile.y - camera.offset_y - pulse // 2,
+                           TILE_SIZE + pulse, TILE_SIZE + pulse)
+        if coin_count < total_coins:
+            locked = end_tile_img.copy()
+            locked.set_alpha(100)
+            screen.blit(locked, (tile.x - camera.offset_x, tile.y -camera.offset_y))
+        else:
+            glow = pygame.Surface(rect.size, pygame.SRCALPHA)
+            glow.fill((255,255,0,80))
+            screen.blit(glow, rect.topleft)
+            screen.blit(end_tile_img, rect.topleft) 
+
     for c in coins:
-        screen.blit(coin_img, (c.x - camera.offset_x, c.y - camera.offset_y))
+        float_offset = math.sin(coin_timer + c.x * 0.01 + c.y * 0.01) * 5
+        screen.blit(coin_img, (c.x - camera.offset_x, c.y - camera.offset_y + float_offset))
     
     for c in coins[:]:
         if player.rect.colliderect(c):
             coin_count += 1
+            coin_popups.append({"x": c.x, "y": c.y, "alpha": 255})
             coins.remove(c)
 
     if player.rect.top > len(tilemap) * TILE_SIZE:
+        if player.rect.top > len(tilemap) * TILE_SIZE or player.rect.colliderect(dt):
+            death_flash_alpha = 180
+            player.lose_life()
+            player.respawn()
+            shake_duration = 10
+
         death_flash_alpha = 180
-        #camera.start_shake(intensity=12, duration=20)
         player.lose_life()
         player.respawn()
 
@@ -296,19 +344,44 @@ while running:
         map_height = len(tilemap) * TILE_SIZE
         camera.update(player, map_width, map_height)
 
-        scale_x = MINIMAP_WIDTH / map_width
+        scale_x = MINIMAP_WIDTH  / map_width
         scale_y = MINIMAP_HEIGHT / map_height
 
         draw_minimap(screen, tilemap, player, scale_x, scale_y)
 
-        coin_text = small_font.render(f"Coins: {coin_count}", True, (255,215, 0))
+        coin_text = small_font.render(f"Coins: {coin_count}/{total_coins}", True, (255,215, 0))
         screen.blit(coin_text, (20, 60))
 
+        for popup in coin_popups[:]:
+            popup["y"] -= 1
+            popup["alpha"] -= 6
+
+            surf = small_font.render("+1", True, (255,215, 0))
+            surf.set_alpha(popup["alpha"])
+            screen.blit(surf, (popup["x"] - camera.offset_x, popup["y"] - camera.offset_y))
+            if popup["alpha"] <= 0:
+                coin_popups.remove(popup)
+
         for end in end_level:
-            if player.rect.colliderect(end):
-                death_flash_alpha = 180
-                game_state = "level_complete"
-                break
+            if player.rect.colliderect(end) and coin_count >= total_coins:
+                tiles.clear()
+                death_tiles.clear()
+                spawn_points.clear()
+                power_ups.clear()
+                coins.clear()
+                coin_popups.clear()
+                coin_count = 0
+                total_coins = 0
+                game_state = "map_select"
+
+
+    if shake_duration > 0:
+        shake_offset_x = random.randint(-shake_magnitude, shake_magnitude)
+        shake_offset_y = random.randint(-shake_magnitude, shake_magnitude)
+        shake_duration -= 1
+    else:
+        shake_offset_x = 0
+        shake_offset_y = 0
 
     if game_state == "game_over":
         draw_game_over(screen)
