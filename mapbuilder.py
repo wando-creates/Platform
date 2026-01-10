@@ -12,7 +12,7 @@ current_map_name = "map1"
 tilemap = []
 
 ROWS = 20
-COLS = 50
+COLS = 100
 
 TILE_SIZE = 64
 RESET_RECT = pygame.Rect(1720,20,160,50)
@@ -161,8 +161,12 @@ def draw_status_text():
     screen.blit(tile_text, (10,85))
 
     tile_img = Tile_IMAGES.get(paint_value)
+
     if tile_img:
+        rect = tile_img.get_rect(topleft=(10,120))
         screen.blit(tile_img, (10,120))
+        pygame.draw.rect(screen, (200,50,50), rect, 3)
+    
 
 def reset_map():
     global tilemap
@@ -175,9 +179,9 @@ load_map()
 while running:
     screen.fill(BROWN)
 
-    draw_status_text()
     draw_grid()
-    
+    draw_status_text()
+       
     keys = pygame.key.get_pressed()
     current_paint_value = paint_value
     for event in pygame.event.get():

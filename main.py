@@ -35,6 +35,7 @@ power_ups = []
 end_level = []
 coins = []
 coin_popups = []
+lava_particles = []
 
 dirt = pygame.image.load("images/64x64_dirt.png").convert_alpha()
 dirt = pygame.transform.scale(dirt, (TILE_SIZE, TILE_SIZE))
@@ -266,6 +267,16 @@ while running:
         screen.blit(dirt, (tile.x - camera.offset_x, tile.y - camera.offset_y))
 
     for tile in death_tiles:
+        if random.random() < 0.04:
+            lava_particles.append({
+                "x": tile.left + random.randint(4, TILE_SIZE - 4),
+                "y": tile.top + random.randint(-2, 2),
+                "vx": random.uniform(-0.5, 0.5),
+                "vy": random.uniform(-2,-1),
+                "life": random.randint(20,40),
+                "size": random.randint(5,12)
+            })
+            
         screen.blit(magma, (tile.x - camera.offset_x, tile.y - camera.offset_y))
 
     for dt in death_tiles:
@@ -315,6 +326,23 @@ while running:
             coin_count += 1
             coin_popups.append({"x": c.x, "y": c.y, "alpha": 255})
             coins.remove(c)
+
+    for p in lava_particles[:]:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["vy"] += 0.05
+        p["life"] -= 1
+
+        alpha = max(0, int(255 * (p["life"] / 40)))
+        colour = (255, random.randint(80,120), 0)
+
+        surf = pygame.Surface((p["size"]*2, p["size"]*2), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (*colour, alpha), (p["size"], p["size"]), p["size"])
+
+        screen.blit(surf, (p["x"] - camera.offset_x, p["y"] - camera.offset_y))
+
+        if p["life"] <= 0:
+            lava_particles.remove(p)
 
     if player.rect.top > len(tilemap) * TILE_SIZE:
         if player.rect.top > len(tilemap) * TILE_SIZE or player.rect.colliderect(dt):
@@ -373,7 +401,6 @@ while running:
                 coin_count = 0
                 total_coins = 0
                 game_state = "map_select"
-
 
     if shake_duration > 0:
         shake_offset_x = random.randint(-shake_magnitude, shake_magnitude)
