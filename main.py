@@ -17,6 +17,7 @@ clock = pygame.time.Clock()
 pygame.display.set_caption("Platform")
 
 font = pygame.font.SysFont(None, 100)
+large_font = pygame.font.SysFont(None, 250)
 small_font = pygame.font.SysFont(None, 40)
 
 TILE_SIZE = screen_width // 10
@@ -35,8 +36,11 @@ power_ups = []
 end_level = []
 coins = []
 coin_popups = []
+heart_popups = []
 lava_particles = []
 end_particles = []
+coin_particles = []
+heart_particles = []
 
 dirt = pygame.image.load("images/64x64_dirt.png").convert_alpha()
 dirt = pygame.transform.scale(dirt, (TILE_SIZE, TILE_SIZE))
@@ -44,14 +48,14 @@ dirt = pygame.transform.scale(dirt, (TILE_SIZE, TILE_SIZE))
 magma = pygame.image.load("images/64x64_magma.png").convert_alpha()
 magma = pygame.transform.scale(magma, (TILE_SIZE, TILE_SIZE))
 
-health_powerup = pygame.image.load("images/health_powerup.png")
-health_powerup = pygame.transform.scale(health_powerup, (24,24))
-
-coin_img = pygame.image.load("images/coin.png")
-coin_img = pygame.transform.scale(coin_img, (24,24))
+coin_img = pygame.image.load("images/tile_coin.png")
+coin_img = pygame.transform.scale(coin_img, (48,48))
 
 end_tile_img = pygame.image.load("images/end_tile.png")
 end_tile_img = pygame.transform.scale(end_tile_img, (TILE_SIZE, TILE_SIZE))
+
+heart_powerup = pygame.image.load("images/tile_heart.png")
+heart_powerup = pygame.transform.scale(heart_powerup, (48,48))
 
 player = Player(0,0,50,120, spawn_points)
 camera = Camera(screen_width, screen_height, TILE_SIZE)
@@ -117,9 +121,12 @@ def draw_start_screen(screen):
     overlay.fill((50,120,255))
     screen.blit(overlay, (0,0))
 
+    name = large_font.render("Deccy Reccy", True, (255,255,255))
     start = font.render("Press SPACE To Start", True, (255,255,255))
-    rect = start.get_rect(center=(screen.get_width()//2, screen.get_height()//2 - 50))
+    rect = start.get_rect(center=(screen.get_width()//2, screen.get_height()//2 + 150))
+    name_rect = name.get_rect(center=(screen.get_width()//2, screen.get_height()/2 - 250))
     screen.blit(start,rect)
+    screen.blit(name, name_rect)
 
 def draw_game_over(screen):
     overlay = pygame.Surface(screen.get_size())
@@ -244,7 +251,7 @@ while running:
                 player.respawn()
                 game_state = "playing"
     
-    screen.fill((180,180,180))
+    screen.fill((0,0,0))
 
     if game_state == "start":
         draw_start_screen(screen)
@@ -300,6 +307,51 @@ while running:
             locked.set_alpha(100)
             screen.blit(locked, (tile.x - camera.offset_x, tile.y -camera.offset_y))
 
+    for c in coins:
+        if random.random() < 0.04:
+            angle = random.uniform(0,2 * math.pi)
+            speed = random.uniform(1,3)
+
+            coin_particles.append({
+                "x": c.centerx,
+                "y": c.centery,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed,
+                "life": random.randint(20,40),
+                "size": random.randint(8,12)
+            })
+
+        float_offset = math.sin(coin_timer + c.x * 0.01 + c.y * 0.01) * 5
+        screen.blit(coin_img, (c.x - camera.offset_x, c.y - camera.offset_y + float_offset))
+
+        if player.rect.colliderect(c):
+            coin_count += 1
+            coin_popups.append({"x": c.x, "y": c.y, "alpha": 255})
+            coins.remove(c)
+
+    for p in power_ups:
+        if random.random() < 0.04:
+            angle = random.uniform(0,2*math.pi)
+            speed = random.uniform(1,3)
+
+            heart_particles.append({
+                "x": p.centerx,
+                "y": p.centery,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed,
+                "life": random.randint(20,40),
+                "size": random.randint(8,12)
+            })
+
+        float_offset = math.sin(coin_timer + p.x * 0.01 + p.y * 0.01) * 5
+        screen.blit(heart_powerup, (p.x - camera.offset_x, p.y - camera.offset_y + float_offset))
+
+        if player.rect.colliderect(p):
+            player.gain_life()
+            player.start_green_flash()
+            heart_popups.append({"x": p.x, "y": p.y, "alpha": 255})
+            power_ups.remove(p)
+    
     for dt in death_tiles:
         if player.rect.colliderect(dt):
             if player.rect.top > len(tilemap) * TILE_SIZE or player.rect.colliderect(dt):
@@ -308,31 +360,12 @@ while running:
                 player.respawn()
                 shake_duration = 10
                 break
+
         if player.rect.top > len(tilemap) * TILE_SIZE:
             death_flash_alpha = 180
             player.lose_life()
             player.respawn()
             shake_duration = 10
-
-    for p in power_ups:
-        float_offset = math.sin(coin_timer + p.x * 0.01 + p.y * 0.01) * 5
-        screen.blit(health_powerup, (p.x - camera.offset_x, p.y - camera.offset_y + float_offset))
-    
-    for p in power_ups:
-        if player.rect.colliderect(p):
-            player.gain_life()
-            player.start_green_flash()
-            power_ups.remove(p)
-    
-    for c in coins:
-        float_offset = math.sin(coin_timer + c.x * 0.01 + c.y * 0.01) * 5
-        screen.blit(coin_img, (c.x - camera.offset_x, c.y - camera.offset_y + float_offset))
-    
-    for c in coins[:]:
-        if player.rect.colliderect(c):
-            coin_count += 1
-            coin_popups.append({"x": c.x, "y": c.y, "alpha": 255})
-            coins.remove(c)
 
     for p in lava_particles[:]:
         p["x"] += p["vx"]
@@ -365,6 +398,42 @@ while running:
 
         if p["life"] <= 0:
             end_particles.remove(p)
+
+    for p in coin_particles[:]:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["life"] -= 1
+
+        if p["life"] <= 0:
+            coin_particles.remove(p)
+            continue
+
+        alpha = max(0, int(255 * (p["life"] / 40)))
+
+        surf = coin_img.copy()
+        surf.set_alpha(alpha)
+
+        surf = pygame.transform.scale(surf, (p["size"]*2, p["size"]*2))
+        screen.blit(surf, (p["x"] - camera.offset_x, p["y"] - camera.offset_y - p["size"]))
+
+
+    for p in heart_particles[:]:
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["life"] -= 1
+
+        if p["life"] <= 0:
+            heart_particles.remove(p)
+            continue
+
+        alpha = max(0, int(255 * (p["life"] / 40)))
+
+        surf = heart_powerup.copy()
+        surf.set_alpha(alpha)
+
+        surf = pygame.transform.scale(surf, (p["size"]*2, p["size"]*2))
+
+        screen.blit(surf, (p["x"] - camera.offset_x - p["size"], p["y"] - camera.offset_y - p["size"]))
 
     if player.rect.top > len(tilemap) * TILE_SIZE:
         if player.rect.top > len(tilemap) * TILE_SIZE or player.rect.colliderect(dt):
@@ -411,6 +480,16 @@ while running:
             screen.blit(surf, (popup["x"] - camera.offset_x, popup["y"] - camera.offset_y))
             if popup["alpha"] <= 0:
                 coin_popups.remove(popup)
+        
+        for popup in heart_popups[:]:
+            popup["y"] -= 1
+            popup["alpha"] -= 6
+
+            surf = small_font.render("+1", True, (255,40, 40))
+            surf.set_alpha(popup["alpha"])
+            screen.blit(surf, (popup["x"] - camera.offset_x, popup["y"] - camera.offset_y))
+            if popup["alpha"] <= 0:
+                heart_popups.remove(popup)
 
         for end in end_level:
             if player.rect.colliderect(end) and coin_count >= total_coins:
@@ -423,14 +502,6 @@ while running:
                 coin_count = 0
                 total_coins = 0
                 game_state = "map_select"
-
-    if shake_duration > 0:
-        shake_offset_x = random.randint(-shake_magnitude, shake_magnitude)
-        shake_offset_y = random.randint(-shake_magnitude, shake_magnitude)
-        shake_duration -= 1
-    else:
-        shake_offset_x = 0
-        shake_offset_y = 0
 
     if game_state == "game_over":
         draw_game_over(screen)

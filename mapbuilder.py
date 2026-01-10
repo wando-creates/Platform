@@ -20,9 +20,12 @@ RESET_RECT = pygame.Rect(1720,20,160,50)
 dirt = pygame.image.load("images/64x64_dirt.png")
 magma = pygame.image.load("images/64x64_magma.png")
 spawn = pygame.image.load("images/spawn_block.png")
-health_powerup = pygame.image.load("images/health_powerup.png")
+health_powerup = pygame.image.load("images/tile_heart.png")
+pygame.transform.scale(health_powerup, (64,64))
+
 end_tile = pygame.image.load("images/end_tile.png")
-coin_img = pygame.image.load("images/coin.png")
+coin_img = pygame.image.load("images/tile_coin.png")
+pygame.transform.scale(coin_img, (48,48))
 
 TILE_NAMES =  {
     0: "Empty",
@@ -93,8 +96,6 @@ def draw_grid():
                 screen.blit(end_tile, rect)
             elif tilemap[row][col] == 6:
                 screen.blit(coin_img, rect)
-            else:
-                colour = WHITE
 
             pygame.draw.rect(screen, GREY, rect, 1)
 
@@ -134,6 +135,12 @@ def load_map():
     try:
         with open(filename, "r") as f:
             tilemap = json.load(f)
+        
+        for row in tilemap:
+            while len(row) < COLS:
+                row.append(0)
+        while len(tilemap) < ROWS:
+            tilemap.append([0] * COLS)
         is_saved = True
 
     except FileNotFoundError:
