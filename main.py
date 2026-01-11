@@ -2,6 +2,7 @@ import pygame
 import json
 import math
 import random
+import os
 from settings import *
 from player import Player
 from camera import Camera
@@ -28,6 +29,8 @@ MINIMAP_WIDTH = 220
 
 MINIMAP_X = screen_width - MINIMAP_WIDTH - MINIMAP_PADDING
 MINIMAP_Y = MINIMAP_PADDING
+
+SAVE_FILE = "best_times.json"
 
 exit_button_rect = pygame.Rect(screen_width//2 - 100, 600, 200, 60)
 exit_button_colour = (200,50,50)
@@ -71,6 +74,7 @@ MAPS = ["maps/map1.json",
         "maps/map4.json",
         "maps/map5.json"
 ]
+best_times = {}
 
 current_map_index = 0 
 coin_count = 0
@@ -177,11 +181,17 @@ def draw_map_select(screen, selected_index):
         colour = (255,255,0) if i == selected_index else (200,200,200)
         text = small_font.render(f"Map {i+1}", True, colour)
         screen.blit(text, (screen.get_width()//2 - 60, 250 + i * 60))
+
+        if i in best_times:
+            time_text = small_font.render(f"Best: {format_time(best_times[i])}", True, (150,255,150))
+        else: 
+            time_text = small_font.render("Best: N/A", True, (150,255,150))
+        screen.blit(time_text, (screen.get_width()//2 + 60, 250 + i * 60))
     
     mouse_pos = pygame.mouse.get_pos()
     colour = exit_button_hover_colour if exit_button_rect.collidepoint(mouse_pos) else exit_button_colour
     pygame.draw.rect(screen, colour, exit_button_rect)
-    screen.blit(exit_button_text, (exit_button_rect.centerx - exit_button_text.get_width()//2, exit_button_rect.centery - exit_button_text.get_height()//2))  
+    screen.blit(exit_button_text, (exit_button_rect.centerx - exit_button_text.get_width()//2, exit_button_rect.centery - exit_button_text.get_height()//2)) 
 
 def draw_minimap(screen, tilemap, player, scale_x, scale_y):
     minimap_surface = pygame.Surface((MINIMAP_WIDTH, MINIMAP_HEIGHT))
@@ -212,8 +222,29 @@ def draw_minimap(screen, tilemap, player, scale_x, scale_y):
     pygame.draw.rect(minimap_surface, (255,255,255), minimap_surface.get_rect(), 2)
     screen.blit(minimap_surface, (MINIMAP_X, MINIMAP_Y))
 
+def load_best_times():
+    if os.path.exists(SAVE_FILE):
+        try:
+            with open(SAVE_FILE, "r") as f:
+                data = json.load(f)
+                return {int(k): v for k, v in data.items()}
+        except json.JSONDecodeError:
+            return{}
+    return {}
+
+def save_best_times(best_times):
+    with open(SAVE_FILE, "w") as f:
+        json.dump(best_times, f)
+
+def format_time(ms):
+    elapsed_milliseconds = ms % 1000
+    elapsed_seconds = (ms // 1000) % 60
+    elapsed_minutes = (ms // 60000) % 60
+    return f"{elapsed_minutes:02}:{elapsed_seconds:02}:{elapsed_milliseconds:03}"
+
 player.respawn()
 game_start_time = pygame.time.get_ticks()
+best_times = load_best_times()
 
 final_time_ms = 0
 death_flash_alpha = 0
@@ -524,6 +555,11 @@ while running:
                     current_time = pygame.time.get_ticks()
                     final_time_ms = current_time  -game_start_time
                     level_timer_running = False
+
+                    if current_map_index not in best_times or final_time_ms < best_times[current_map_index]:
+                        best_times[current_map_index] = final_time_ms
+                        save_best_times(best_times)
+
                 game_state = "level_complete"
                 tiles.clear()
                 death_tiles.clear()
