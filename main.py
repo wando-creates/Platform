@@ -29,6 +29,11 @@ MINIMAP_WIDTH = 220
 MINIMAP_X = screen_width - MINIMAP_WIDTH - MINIMAP_PADDING
 MINIMAP_Y = MINIMAP_PADDING
 
+exit_button_rect = pygame.Rect(screen_width//2 - 100, 600, 200, 60)
+exit_button_colour = (200,50,50)
+exit_button_hover_colour = (255,80,80)
+exit_button_text = small_font.render("EXIT", True, (255,255,255))
+
 tiles = []
 spawn_points = []
 death_tiles = []
@@ -142,7 +147,7 @@ def draw_game_over(screen):
     restart_rect = restart.get_rect(center=(screen.get_width()//2, screen.get_height()//2 + 40))
     screen.blit(restart, restart_rect)
 
-def level_end(screen):
+def level_end(screen, final_time_ms):
     overlay = pygame.Surface(screen.get_size())
     overlay.set_alpha(200)
     overlay.fill((50,50,50))
@@ -152,9 +157,15 @@ def level_end(screen):
     rect = level_completed.get_rect(center=(screen.get_width()//2, screen.get_height()//2 - 40))
     screen.blit(level_completed, rect)
 
-    sub = small_font.render("Press Enter To Continue", True, (0,0,0))
+    sub = small_font.render("Press Esc To Continue", True, (0,0,0))
     rect = sub.get_rect(center=(screen.get_width()//2, screen.get_height()//2))
     screen.blit(sub, rect)
+
+    elapsed_milliseconds = final_time_ms % 1000
+    elapsed_seconds = (final_time_ms // 1000) % 60
+    elapsed_minutes = (final_time_ms // 60000) % 60
+    final_time_text = small_font.render(f"Final Time: {elapsed_minutes:02}:{elapsed_seconds:02}:{elapsed_milliseconds:03}", True, (255,255,255))
+    screen.blit(final_time_text, (screen.get_width()/2 - final_time_text.get_width()//2, screen.get_height()//2 + 50))
 
 def draw_map_select(screen, selected_index):
     screen.fill((30,30,30))
@@ -166,6 +177,11 @@ def draw_map_select(screen, selected_index):
         colour = (255,255,0) if i == selected_index else (200,200,200)
         text = small_font.render(f"Map {i+1}", True, colour)
         screen.blit(text, (screen.get_width()//2 - 60, 250 + i * 60))
+    
+    mouse_pos = pygame.mouse.get_pos()
+    colour = exit_button_hover_colour if exit_button_rect.collidepoint(mouse_pos) else exit_button_colour
+    pygame.draw.rect(screen, colour, exit_button_rect)
+    screen.blit(exit_button_text, (exit_button_rect.centerx - exit_button_text.get_width()//2, exit_button_rect.centery - exit_button_text.get_height()//2))  
 
 def draw_minimap(screen, tilemap, player, scale_x, scale_y):
     minimap_surface = pygame.Surface((MINIMAP_WIDTH, MINIMAP_HEIGHT))
@@ -197,23 +213,33 @@ def draw_minimap(screen, tilemap, player, scale_x, scale_y):
     screen.blit(minimap_surface, (MINIMAP_X, MINIMAP_Y))
 
 player.respawn()
+game_start_time = pygame.time.get_ticks()
 
+final_time_ms = 0
 death_flash_alpha = 0
 
 running = True
 level_finished = False
+level_timer_running = True
 
 while running:
     key = pygame.key.get_pressed()
+    screen.fill((0,0,0))
+
     exit_pulse += 1
     coin_timer += 0.05
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if game_state == "map_select":
+                if exit_button_rect.collidepoint(event.pos):
+                    running = False
+        
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                running = False
+                game_state = "map_select"
             if event.key == pygame.K_SPACE and game_state == "playing":
                 player.jump()
             if game_state == "game_over":
@@ -249,10 +275,11 @@ while running:
 
                 tiles, death_tiles, spawn_points, tilemap, end_level = load_level(MAPS[current_map_index], TILE_SIZE)
                 player.respawn()
+
+                game_start_time = pygame.time.get_ticks()
+                level_timer_running = True
                 game_state = "playing"
     
-    screen.fill((0,0,0))
-
     if game_state == "start":
         draw_start_screen(screen)
         clock.tick(60)
@@ -266,7 +293,7 @@ while running:
         continue
 
     if game_state == "level_complete":
-        level_end(screen)
+        level_end(screen, final_time_ms)
         clock.tick(60)
         pygame.display.flip()
         continue
@@ -456,9 +483,9 @@ while running:
         player.update(tiles)
         player.update_health_fade()
         player.draw_shadows(screen, camera)
-        pygame.draw.rect(screen, player.colour, pygame.Rect(player.rect.x - camera.offset_x, player.rect.y - camera.offset_y, player.rect.width, player.rect.height))
+        screen.blit(player.current_image, (player.rect.x - camera.offset_x, player.rect.bottom - player.current_image.get_height() - camera.offset_y))
         player.draw_health_bar(screen, 20,20)
-
+ 
         map_width = len(tilemap[0]) * TILE_SIZE
         map_height = len(tilemap) * TILE_SIZE
         camera.update(player, map_width, map_height)
@@ -493,6 +520,11 @@ while running:
 
         for end in end_level:
             if player.rect.colliderect(end) and coin_count >= total_coins:
+                if level_timer_running:
+                    current_time = pygame.time.get_ticks()
+                    final_time_ms = current_time  -game_start_time
+                    level_timer_running = False
+                game_state = "level_complete"
                 tiles.clear()
                 death_tiles.clear()
                 spawn_points.clear()
@@ -501,7 +533,21 @@ while running:
                 coin_popups.clear()
                 coin_count = 0
                 total_coins = 0
-                game_state = "map_select"
+                if key [pygame.K_RETURN]:
+                    game_state = "map_select"
+
+    if level_timer_running:
+        current_time = pygame.time.get_ticks()
+        elapsed_ms = current_time - game_start_time
+    else:
+        elapsed_ms = final_time_ms
+
+    elapsed_seconds = (elapsed_ms // 1000) % 60
+    elapsed_minutes = (elapsed_ms // 60000) % 60
+    elapsed_milliseconds = elapsed_ms % 1000
+
+    timer_text = small_font.render(f"{elapsed_minutes:02}:{elapsed_seconds:02}:{elapsed_milliseconds:03}", True, (255,255,255))
+    screen.blit(timer_text, (1500,25))
 
     if game_state == "game_over":
         draw_game_over(screen)
@@ -510,7 +556,6 @@ while running:
 
     death_flash_alpha -= 180 / DEATH_FLASH_DURATION
     death_flash_alpha = max(0, int(death_flash_alpha))
-
 
     clock.tick(60)
     pygame.display.flip()

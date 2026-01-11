@@ -20,10 +20,12 @@ RESET_RECT = pygame.Rect(1720,20,160,50)
 dirt = pygame.image.load("images/64x64_dirt.png")
 magma = pygame.image.load("images/64x64_magma.png")
 spawn = pygame.image.load("images/spawn_block.png")
+
 health_powerup = pygame.image.load("images/tile_heart.png")
 pygame.transform.scale(health_powerup, (64,64))
 
 end_tile = pygame.image.load("images/end_tile.png")
+
 coin_img = pygame.image.load("images/tile_coin.png")
 pygame.transform.scale(coin_img, (48,48))
 

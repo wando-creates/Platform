@@ -7,6 +7,25 @@ pygame.init()
 class Player:
     def __init__(self, x, y, width, height, spawn_points):
         self.rect = pygame.Rect(x,y, width, height)
+    
+        self.idle_right = pygame.image.load("images/bob_i.png").convert_alpha()
+        self.idle_left = pygame.image.load("images/bob_i_s.png").convert_alpha()
+
+        self.idle_right_2 = pygame.image.load("images/bob.png").convert_alpha()
+        self.idle_left_2 = pygame.image.load("images/bob_s.png").convert_alpha()
+
+        self.running_right = pygame.image.load("images/bob_r.png").convert_alpha()
+        self.running_left = pygame.image.load("images/bob_r_s.png").convert_alpha()
+
+        self.jumping_right = pygame.image.load("images/bob_j.png").convert_alpha()
+        self.jumping_left = pygame.image.load("images/bob_j_s.png").convert_alpha()
+
+        self.jumping_right_2 = pygame.image.load("images/bob_j2.png").convert_alpha()
+        self.jumping_left_2 = pygame.image.load("images/bob_j2_s.png").convert_alpha()
+
+        self.current_image = self.idle_right
+
+        self.sprite_offset_y = self.current_image.get_height() - self.rect.height
         self.colour = BLUE
         self.facing = "right"
 
@@ -49,6 +68,16 @@ class Player:
         self.wall_jump_power_x = 15
         self.wall_jump_power_y = -25
 
+        self.state = "idle"
+        self.last_facing = "right"
+        self.anim_timer = 0
+        self.anim_speed = 10
+        self.current_image = self.idle_right
+
+        self.is_jumping = False
+        self.jump_anim_timer = 0
+        self.jump_anim_length = 10
+
     def move(self):
         if self.is_dashing:
             return
@@ -59,19 +88,30 @@ class Player:
         if keys[pygame.K_a]:
             self.velocity_x = -self.speed
             self.facing = "left"
+            self.last_facing = "left"
+            self.state = "run"
         if keys[pygame.K_d]:
             self.velocity_x = self.speed
             self.facing = "right"
+            self.last_facing = "right"
+            self.state = "run"
+        else:
+            if self.on_ground:
+                self.state = "idle"
         
     def jump(self):
         if self.jumps_left > 0:
             self.velocity_y = self.jump_power
             self.jumps_left -= 1
+
+            self.is_jumping = True
+            self.jump_anim_timer = self.jump_anim_length
         
         elif self.on_left_wall:
             self.velocity_y = self.wall_jump_power_y
             self.velocity_x = self.wall_jump_power_x
             self.facing = "right"
+
         elif self.on_right_wall:
             self.velocity_y = self.wall_jump_power_y
             self.velocity_x = -self.wall_jump_power_x
@@ -108,9 +148,12 @@ class Player:
                     self.velocity_y = 0
                     self.on_ground = True
                     self.jumps_left = self.max_jumps
+                    self.is_jumping = False
+                    self.state = "idle"
                 elif self.velocity_y < 0:
                     self.rect.top = tile.bottom
                     self.velocity_y = 0
+
 
         if self.is_dashing:
             self.dash_timer -= 1
@@ -133,20 +176,28 @@ class Player:
         else:
             self.flash_colour = None
 
+        if self.jump_anim_timer > 0:
+            self.jump_anim_timer -= 1
+        else:
+            self.is_jumping = False
+        
+
+        self.update_sprite() 
+
     def draw_shadows(self, screen, camera):
         for shadow in self.shadows[:]:
-            shadow[2] -= 1
-            if shadow[2] <= 0:
+            shadow[3] -= 1
+            if shadow[3] <= 0:
                 self.shadows.remove(shadow)
                 continue
                 
-            alpha = int(255 * (shadow[2] / self.shadow_lifetime))
-            surf = pygame.Surface(self.rect.size, pygame.SRCALPHA)
-            surf.fill((*self.colour, alpha))
-            screen.blit(surf, (shadow[0] - camera.offset_x, shadow[1] - camera.offset_y))
+            alpha = int(255 * (shadow[3] / self.shadow_lifetime))
+            image = shadow[2].copy()
+            image.set_alpha(alpha)
+            screen.blit(image, (shadow[0] - camera.offset_x, shadow[1]  + self.rect.height - image.get_height() - camera.offset_y))
             
     def create_shadows(self):
-        self.shadows.append([self.rect.x, self.rect.y, self.shadow_lifetime])
+        self.shadows.append([self.rect.x, self.rect.y, self.current_image.copy(), self.shadow_lifetime])
     
     def dash(self):
         if not self.is_dashing and self.dash_cooldown_timer == 0:
@@ -181,7 +232,29 @@ class Player:
             screen.blit(box, (x + i * (boxsize + spacing), y))
 
             pygame.draw.rect(screen, (255,255,255), (x + i * (boxsize + spacing), y, boxsize, boxsize), 2)
-    
+
+    def update_sprite(self):
+        frame = (pygame.time.get_ticks() // 200) % 2
+
+        if self.is_jumping:
+            if self.facing == "right":
+                self.current_image = self.jumping_right if frame == 0 else self.jumping_right_2
+            else:
+                self.current_image = self.jumping_left if frame  == 0 else self.jumping_left_2
+            return
+        
+        if self.velocity_x != 0:
+            if self.facing == "right":
+                self.current_image = self.running_right if frame == 0 else self.idle_right_2
+            else:
+                self.current_image = self.running_left if frame == 0 else self.idle_left_2
+            return
+
+        if self.last_facing == "right":
+            self.current_image = self.idle_right if frame == 0 else self.idle_right_2
+        else:
+            self.current_image = self.idle_left if frame == 0 else self.idle_left_2
+
     def gain_life(self):
         self.max_health += 1
         self.current_health += 1
