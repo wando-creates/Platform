@@ -23,6 +23,9 @@ class Player:
         self.jumping_right_2 = pygame.image.load("images/bob_j2.png").convert_alpha()
         self.jumping_left_2 = pygame.image.load("images/bob_j2_s.png").convert_alpha()
 
+        self.heart_img = pygame.image.load("images/tile_heart.png").convert_alpha()
+        self.heart_img = pygame.transform.scale(self.heart_img, (24,24))
+
         self.current_image = self.idle_right
 
         self.sprite_offset_y = self.current_image.get_height() - self.rect.height
@@ -226,12 +229,10 @@ class Player:
         for i in range(self.max_health):
             alpha = self.life_fades[i]
 
-            box = pygame.Surface((boxsize, boxsize), pygame.SRCALPHA)
-            box.fill((255,0,0, alpha))
+            box = self.heart_img.copy()
+            box.set_alpha(alpha)
 
             screen.blit(box, (x + i * (boxsize + spacing), y))
-
-            pygame.draw.rect(screen, (255,255,255), (x + i * (boxsize + spacing), y, boxsize, boxsize), 2)
 
     def update_sprite(self):
         frame = (pygame.time.get_ticks() // 200) % 2
