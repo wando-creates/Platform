@@ -9,6 +9,7 @@ from camera import Camera
 from effects import draw_death_flash
 
 pygame.init()
+pygame.mixer.init()
 
 screen = pygame.display.set_mode((0,0), pygame.FULLSCREEN)
 
@@ -16,6 +17,7 @@ screen_width = screen.get_width()
 screen_height = screen.get_height()
 clock = pygame.time.Clock()
 pygame.display.set_caption("Platform")
+
 
 font = pygame.font.SysFont(None, 100)
 large_font = pygame.font.SysFont(None, 250)
@@ -72,8 +74,8 @@ MAPS = ["maps/map1.json",
         "maps/map2.json",
         "maps/map3.json",
         "maps/map4.json",
-        "maps/map5.json"
 ]
+
 best_times = {}
 
 current_map_index = 0 
@@ -203,8 +205,6 @@ def draw_minimap(screen, tilemap, player, scale_x, scale_y):
                 colour = (100, 50, 0)
             elif tile == 2:
                 colour = (200, 60, 60)
-            elif tile == 4:
-                colour = (255,0,0)
             else:
                 continue
                 
@@ -248,10 +248,13 @@ best_times = load_best_times()
 
 final_time_ms = 0
 death_flash_alpha = 0
+music_fade_time = 1000
+music_volume = 0.5
 
 running = True
 level_finished = False
 level_timer_running = True
+current_music = None
 
 while running:
     key = pygame.key.get_pressed()
@@ -259,6 +262,7 @@ while running:
 
     exit_pulse += 1
     coin_timer += 0.05
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
@@ -353,7 +357,7 @@ while running:
 
             end_particles.append({
                 "x": tile.centerx,
-                "y": tile.centery,
+                "y": tile.centery - 15,
                 "vx": math.cos(angle) * speed,
                 "vy": math.sin(angle) * speed,
                 "life": random.randint(20,40),
@@ -448,7 +452,7 @@ while running:
         p["life"] -= 1
 
         alpha = max(0, int(255 * (p["life"] / 40)))
-        colour = (random.randint(20,70), 180, 0)
+        colour = (20, 145, random.randint(20,77))
 
         surf = pygame.Surface((p["size"]*2, p["size"]*2), pygame.SRCALPHA)
         pygame.draw.circle(surf, (*colour, alpha), (p["size"], p["size"]), p["size"])
